@@ -1,0 +1,91 @@
+# Flutter-specific
+*.log
+*.lock
+/build/
+.idea/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+ios/Pods/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/.symlinks/
+ios/Runner/GeneratedPluginRegistrant.*
+ios/Runner.xcworkspace/xcshareddata/
+macos/Flutter/ephemeral/
+web/.flutter-plugins
+web/.dart_tool/
+web/build/
+
+# Android-specific
+android/.gradle/
+android/app/build/
+android/app/google-services.json  # Evita subir credenciales de Firebase
+android/local.properties
+android/app/debug/
+android/app/release/
+android/app/src/debug/
+android/app/src/release/
+android/key.properties
+
+# iOS-specific (si planeas soporte iOS)
+ios/.generated/
+ios/Runner/Info.plist
+ios/Runner.xcodeproj/project.xcworkspace/
+ios/Runner.xcodeproj/xcuserdata/
+ios/Runner/GoogleService-Info.plist  # Credenciales de Firebase para iOS
+
+# macOS-specific (si planeas soporte macOS)
+macos/.generated/
+macos/Runner/Info.plist
+macos/Runner.xcodeproj/project.xcworkspace/
+macos/Runner.xcodeproj/xcuserdata/
+
+# General files to ignore
+.DS_Store
+*.iml
+*.ipr
+*.iws
+*.class
+*.log
+*.bak
+*.swp
+*.swo
+*.pyc
+*.pyo
+*.tmp
+*.out
+*.pid
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.dmg
+*.iso
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Sensitive or temporary files
+.env
+.env.local
+.env.development
+.env.production
+*.key
+*.pem
+*.cert
+*.jks
+
+# IDE-specific
+.vscode/
+*.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

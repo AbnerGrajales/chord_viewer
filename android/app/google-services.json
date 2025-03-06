@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "230144189029",
+    "project_id": "chordviewer-c0190",
+    "storage_bucket": "chordviewer-c0190.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:230144189029:android:b7fbb5a98b74547e435c8c",
+        "android_client_info": {
+          "package_name": "com.example.chord_viewer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbTWjtMVWpHNv4K7iIfGyMZWxPOT_rM28"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:230144189029:android:c08b37299b37d762435c8c",
+        "android_client_info": {
+          "package_name": "com.lyasoft.chordviwer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbTWjtMVWpHNv4K7iIfGyMZWxPOT_rM28"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
