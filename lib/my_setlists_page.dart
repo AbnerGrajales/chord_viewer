@@ -339,7 +339,7 @@ class _MySetlistsPageState extends State<MySetlistsPage> {
                                           onPressed: () => _editSetlistName(index, setlist['name'] ?? 'Sin nombre'),
                                         ),
                                         IconButton(
-                                          icon: const Icon(Icons.delete, color: Colors.red),
+                                          icon: const Icon(Icons.delete, color: Colors.grey),
                                           onPressed: () async {
                                             final confirmed = await showDialog<bool>(
                                               context: context,
@@ -688,7 +688,7 @@ class _SetlistDetailPageState extends State<SetlistDetailPage> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.remove, color: Colors.red),
+                          icon: const Icon(Icons.remove, color: Colors.grey),
                           onPressed: () async {
                             final docRef = FirebaseFirestore.instance.collection('setlists').doc(userId);
                             final docSnapshot = await docRef.get();
