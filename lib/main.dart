@@ -83,15 +83,21 @@ class _ChordHomePageState extends State<ChordHomePage> {
     final setlistRef = FirebaseFirestore.instance.collection('setlists').doc(userId);
     final docSnapshot = await setlistRef.get();
 
+    // Usa DateTime.now().toUtc() en lugar de FieldValue.serverTimestamp()
+    final songWithTimestamp = {
+      ...song,
+      'addedAt': DateTime.now().toUtc().toIso8601String(), // Timestamp local en UTC
+    };
+
     if (docSnapshot.exists) {
       final data = docSnapshot.data() as Map<String, dynamic>;
       final currentSongs = List<Map<String, dynamic>>.from(data['songs'] ?? []);
       if (!currentSongs.any((s) => s['title'] == song['title'])) {
-        currentSongs.add(song);
-        await setlistRef.update({'songs': currentSongs});
+        currentSongs.add(songWithTimestamp);
+        await setlistRef.set({'songs': currentSongs}, SetOptions(merge: true));
       }
     } else {
-      await setlistRef.set({'songs': [song]});
+      await setlistRef.set({'songs': [songWithTimestamp]});
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Added to SetList!')),
@@ -104,7 +110,7 @@ class _ChordHomePageState extends State<ChordHomePage> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),
-          (Route<dynamic> route) => false, // Limpia toda la pila
+          (Route<dynamic> route) => false,
     );
   }
 
@@ -124,11 +130,10 @@ class _ChordHomePageState extends State<ChordHomePage> {
 
     return WillPopScope(
       onWillPop: () async {
-        // Si está logueado, bloquea el botón "Atrás" (puede mostrar un diálogo o salir)
         if (user != null) {
-          return false; // No permite salir
+          return false;
         }
-        return true; // Permite salir si no está logueado
+        return true;
       },
       child: Scaffold(
         appBar: AppBar(
