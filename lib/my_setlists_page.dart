@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'login_page.dart';
 import 'add_songs_page.dart';
 import 'resource_viewer_page.dart';
@@ -106,6 +106,77 @@ class _MySetlistsPageState extends State<MySetlistsPage> {
     }
   }
 
+  Future<void> _editSetlistName(int index, String currentName) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userId = user.uid;
+    final setlistRef = FirebaseFirestore.instance.collection('setlists').doc(userId);
+    final nameController = TextEditingController(text: currentName);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.edit, color: Color(0xFF6A1B9A), size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Editar nombre del setlist',
+              style: GoogleFonts.raleway(fontWeight: FontWeight.bold, fontSize: 20),
+            ),
+          ],
+        ),
+        content: TextField(
+          controller: nameController,
+          decoration: InputDecoration(
+            labelText: 'Nuevo nombre',
+            labelStyle: GoogleFonts.raleway(),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancelar', style: GoogleFonts.raleway()),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isNotEmpty && nameController.text != currentName) {
+                Navigator.pop(context, nameController.text);
+              } else {
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6A1B9A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text('Guardar', style: GoogleFonts.raleway()),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      final docSnapshot = await setlistRef.get();
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final updatedSetlists = List<Map<String, dynamic>>.from(data['setlists'] ?? []);
+        updatedSetlists[index]['name'] = result;
+        updatedSetlists[index]['lastModified'] = DateTime.now().toUtc().toIso8601String();
+        await setlistRef.set({'setlists': updatedSetlists}, SetOptions(merge: true));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Nombre actualizado')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -198,7 +269,6 @@ class _MySetlistsPageState extends State<MySetlistsPage> {
                         itemBuilder: (context, index) {
                           final setlist = setlists[index];
                           final setlistSongs = List<Map<String, dynamic>>.from(setlist['songs'] ?? []);
-                          final createdAt = DateTime.parse(setlist['createdAt']).toLocal();
                           return Card(
                             elevation: 8,
                             shape: RoundedRectangleBorder(
@@ -221,6 +291,7 @@ class _MySetlistsPageState extends State<MySetlistsPage> {
                                 );
                               },
                               child: Container(
+                                height: 120.0, // Altura fija para 2 líneas y elementos
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [Colors.white, Color(0xFFEDE7F6)],
@@ -229,29 +300,32 @@ class _MySetlistsPageState extends State<MySetlistsPage> {
                                   ),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                padding: const EdgeInsets.all(20),
+                                padding: const EdgeInsets.all(16.0),
                                 child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     const Icon(Icons.library_music, size: 30, color: Color(0xFF6A1B9A)),
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             setlist['name'] ?? 'Sin nombre',
                                             style: GoogleFonts.raleway(
-                                              fontSize: 22,
+                                              fontSize: 18,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.black87,
                                             ),
+                                            maxLines: 2, // Permitir hasta 2 líneas
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(height: 10),
+                                          const SizedBox(height: 4),
                                           Text(
-                                            '${createdAt.day} ${createdAt.month} ${createdAt.year}, ${setlistSongs.length} canciones',
+                                            '${setlistSongs.length} canciones',
                                             style: GoogleFonts.raleway(
-                                              fontSize: 16,
+                                              fontSize: 14,
                                               color: Colors.black54,
                                             ),
                                           ),
@@ -262,18 +336,7 @@ class _MySetlistsPageState extends State<MySetlistsPage> {
                                       children: [
                                         IconButton(
                                           icon: const Icon(Icons.edit, color: Color(0xFF6A1B9A)),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => SetlistDetailPage(
-                                                  setlistIndex: index,
-                                                  setlistName: setlist['name'],
-                                                  setlistSongs: setlistSongs,
-                                                ),
-                                              ),
-                                            );
-                                          },
+                                          onPressed: () => _editSetlistName(index, setlist['name'] ?? 'Sin nombre'),
                                         ),
                                         IconButton(
                                           icon: const Icon(Icons.delete, color: Colors.red),
@@ -590,7 +653,7 @@ class _SetlistDetailPageState extends State<SetlistDetailPage> {
                     );
                   },
                   child: Container(
-                    height: 80.0, // Altura fija de la tarjeta
+                    height: 80.0,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Colors.white, Color(0xFFEDE7F6)],
@@ -607,8 +670,8 @@ class _SetlistDetailPageState extends State<SetlistDetailPage> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center, // Centrado vertical
-                            crossAxisAlignment: CrossAxisAlignment.start, // Centrado horizontal
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 song['title'],
@@ -618,8 +681,8 @@ class _SetlistDetailPageState extends State<SetlistDetailPage> {
                                   fontWeight: FontWeight.w600,
                                   color: Colors.black87,
                                 ),
-                                maxLines: 2, // Permitir hasta 2 líneas
-                                overflow: TextOverflow.ellipsis, // Cortar con puntos suspensivos si es más largo
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
