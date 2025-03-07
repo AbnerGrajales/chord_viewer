@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
+import 'login_page.dart';
 import 'resource_viewer_page.dart';
-import 'package:flutter/foundation.dart';
+import 'set_list_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,18 +48,18 @@ class _ChordHomePageState extends State<ChordHomePage> {
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_onSearchChanged); // Usa un método seguro para filtrar
+    _searchController.addListener(_onSearchChanged);
   }
 
   void _onSearchChanged() {
-    if (!mounted) return; // Evita llamadas si el widget ya no está montado
-    _filterSongs(); // Llama al filtrado de forma segura
+    if (!mounted) return;
+    _filterSongs();
   }
 
   void _filterSongs() {
     setState(() {
       if (_searchController.text.isEmpty) {
-        filteredSongs = List.from(songs); // Copia los songs originales
+        filteredSongs = List.from(songs);
       } else {
         filteredSongs = songs
             .where((song) =>
@@ -63,6 +67,45 @@ class _ChordHomePageState extends State<ChordHomePage> {
             .toList();
       }
     });
+  }
+
+  Future<void> _addToSetList(Map<String, dynamic> song) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+      return;
+    }
+
+    final userId = user.uid;
+    final setlistRef = FirebaseFirestore.instance.collection('setlists').doc(userId);
+    final docSnapshot = await setlistRef.get();
+
+    if (docSnapshot.exists) {
+      final data = docSnapshot.data() as Map<String, dynamic>;
+      final currentSongs = List<Map<String, dynamic>>.from(data['songs'] ?? []);
+      if (!currentSongs.any((s) => s['title'] == song['title'])) {
+        currentSongs.add(song);
+        await setlistRef.update({'songs': currentSongs});
+      }
+    } else {
+      await setlistRef.set({'songs': [song]});
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Added to SetList!')),
+    );
+  }
+
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+    await GoogleSignIn().signOut();
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+          (Route<dynamic> route) => false, // Limpia toda la pila
+    );
   }
 
   @override
@@ -73,107 +116,121 @@ class _ChordHomePageState extends State<ChordHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chord Viewer'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'Search Songs',
-                border: OutlineInputBorder(),
+    final user = FirebaseAuth.instance.currentUser;
+    String? displayName = user?.displayName;
+    String initials = user != null && displayName != null && displayName.isNotEmpty
+        ? displayName.trim().split(' ').map((s) => s[0]).take(2).join()
+        : user?.email?.substring(0, 1).toUpperCase() ?? '??';
+
+    return WillPopScope(
+      onWillPop: () async {
+        // Si está logueado, bloquea el botón "Atrás" (puede mostrar un diálogo o salir)
+        if (user != null) {
+          return false; // No permite salir
+        }
+        return true; // Permite salir si no está logueado
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Chord Viewer'),
+          actions: [
+            if (user != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
+                  child: user.photoURL == null
+                      ? Text(
+                    initials,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  )
+                      : null,
+                  backgroundColor: Colors.deepPurple,
+                ),
+              ),
+            if (user != null)
+              IconButton(
+                icon: const Icon(Icons.list),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SetListPage()),
+                  );
+                },
+              ),
+            if (user != null)
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: _signOut,
+              ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: const InputDecoration(
+                  labelText: 'Search Songs',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('songs').snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No songs found'));
-                }
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('songs').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(child: Text('No songs found'));
+                  }
 
-                // Actualiza songs y filteredSongs sin setState directo
-                final newSongs = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
-                if (_searchController.text.isEmpty && !listEquals(songs, newSongs)) {
-                  songs = newSongs;
-                  filteredSongs = List.from(songs); // Sincroniza filteredSongs al inicio
-                }
+                  final newSongs = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+                  if (_searchController.text.isEmpty && !listEquals(songs, newSongs)) {
+                    songs = newSongs;
+                    filteredSongs = List.from(songs);
+                  }
 
-                return ListView.builder(
-                  itemCount: filteredSongs.length,
-                  itemBuilder: (context, index) {
-                    final song = filteredSongs[index];
-                    return ListTile(
-                      title: Text(song['title']),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ResourceViewerPage(
-                              resourceUrl: song['resourceUrl'],
-                              resourceType: song['resourceType'],
+                  return ListView.builder(
+                    itemCount: filteredSongs.length,
+                    itemBuilder: (context, index) {
+                      final song = filteredSongs[index];
+                      return ListTile(
+                        title: Text(song['title']),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ResourceViewerPage(
+                                resourceUrl: song['resourceUrl'],
+                                resourceType: song['resourceType'],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add),
-                        onPressed: () {
-                          _showAddToRepertoireDialog(context, song);
+                          );
                         },
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddToRepertoireDialog(BuildContext context, Map<String, dynamic> song) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add to Repertoire'),
-          content: const Text('You need to sign in to add songs to your repertoire.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                print('Redirect to login page');
-                // Aquí implementarás la redirección a login más adelante
-              },
-              child: const Text('Sign In'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () => _addToSetList(song),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }
-
-// Importa listEquals para comparar listas
 
 bool listEquals<T>(List<T>? a, List<T>? b) {
   if (a == null) return b == null;
